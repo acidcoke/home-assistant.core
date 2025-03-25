@@ -15,6 +15,7 @@ from homeassistant.components.media_player.const import MediaPlayerEntityFeature
 from homeassistant.const import (
     ATTR_SUPPORTED_FEATURES,
     STATE_IDLE,
+    STATE_OFF,
     STATE_PAUSED,
     STATE_PLAYING,
 )
@@ -285,8 +286,8 @@ async def test_volume_media_player_intent(hass: HomeAssistant) -> None:
     assert call.service == SERVICE_VOLUME_SET
     assert call.data == {"entity_id": entity_id, "volume_level": 0.5}
 
-    # Test if not playing
-    hass.states.async_set(entity_id, STATE_IDLE, attributes=attributes)
+    # Test if off
+    hass.states.async_set(entity_id, STATE_OFF, attributes=attributes)
 
     with pytest.raises(intent.MatchFailedError):
         response = await intent.async_handle(
