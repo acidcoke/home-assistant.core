@@ -1,5 +1,7 @@
 """The tests for the media_player platform."""
 
+from contextlib import nullcontext as does_not_raise
+
 import pytest
 
 from homeassistant.components.media_player import (
@@ -8,15 +10,23 @@ from homeassistant.components.media_player import (
     SERVICE_MEDIA_PAUSE,
     SERVICE_MEDIA_PLAY,
     SERVICE_MEDIA_PREVIOUS_TRACK,
+    SERVICE_SELECT_SOURCE,
     SERVICE_VOLUME_SET,
     intent as media_player_intent,
 )
-from homeassistant.components.media_player.const import MediaPlayerEntityFeature
+from homeassistant.components.media_player.const import (
+    ATTR_INPUT_SOURCE,
+    MediaPlayerEntityFeature,
+)
 from homeassistant.const import (
     ATTR_SUPPORTED_FEATURES,
+    STATE_BUFFERING,
     STATE_IDLE,
+    STATE_OFF,
+    STATE_ON,
     STATE_PAUSED,
     STATE_PLAYING,
+    STATE_STANDBY,
 )
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.helpers import (
@@ -270,6 +280,44 @@ async def test_volume_media_player_intent(hass: HomeAssistant) -> None:
             media_player_intent.INTENT_SET_VOLUME,
             {"volume_level": {"value": 50}},
         )
+
+
+@pytest.mark.parametrize(
+    ("state", "outcome"),
+    [
+        (STATE_PLAYING, does_not_raise()),
+        (STATE_PAUSED, does_not_raise()),
+        (STATE_IDLE, does_not_raise()),
+        (STATE_ON, does_not_raise()),
+        (STATE_BUFFERING, pytest.raises(intent.MatchFailedError)),
+        (STATE_STANDBY, does_not_raise()),
+        (STATE_OFF, pytest.raises(intent.MatchFailedError)),
+    ],
+)
+async def test_select_source_intent(hass: HomeAssistant, state, outcome) -> None:
+    """Test HassSelectSource intent for media players."""
+    with outcome:
+        await media_player_intent.async_setup_intents(hass)
+        entity_id = f"{DOMAIN}.test_media_player"
+        attributes = {ATTR_SUPPORTED_FEATURES: MediaPlayerEntityFeature.SELECT_SOURCE}
+        hass.states.async_set(entity_id, state, attributes=attributes)
+
+        calls = async_mock_service(hass, DOMAIN, SERVICE_SELECT_SOURCE)
+
+        response = await intent.async_handle(
+            hass,
+            "test",
+            media_player_intent.INTENT_SELECT_SOURCE,
+            slots={ATTR_INPUT_SOURCE: {"value": "TV"}},
+        )
+        await hass.async_block_till_done()
+
+        assert response.response_type == intent.IntentResponseType.ACTION_DONE
+        assert len(calls) == 1
+        call = calls[0]
+        assert call.domain == DOMAIN
+        assert call.service == SERVICE_SELECT_SOURCE
+        assert call.data == {"entity_id": entity_id, "source": "TV"}
 
 
 async def test_multiple_media_players(

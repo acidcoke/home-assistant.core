@@ -14,9 +14,15 @@ from homeassistant.const import (
     SERVICE_VOLUME_SET,
 )
 from homeassistant.core import Context, HomeAssistant, State
-from homeassistant.helpers import intent
+from homeassistant.helpers import config_validation as cv, intent
 
-from . import ATTR_MEDIA_VOLUME_LEVEL, DOMAIN, MediaPlayerDeviceClass
+from . import (
+    ATTR_INPUT_SOURCE,
+    ATTR_MEDIA_VOLUME_LEVEL,
+    DOMAIN,
+    SERVICE_SELECT_SOURCE,
+    MediaPlayerDeviceClass,
+)
 from .const import MediaPlayerEntityFeature, MediaPlayerState
 
 INTENT_MEDIA_PAUSE = "HassMediaPause"
@@ -24,6 +30,7 @@ INTENT_MEDIA_UNPAUSE = "HassMediaUnpause"
 INTENT_MEDIA_NEXT = "HassMediaNext"
 INTENT_MEDIA_PREVIOUS = "HassMediaPrevious"
 INTENT_SET_VOLUME = "HassSetVolume"
+INTENT_SELECT_SOURCE = "HassSelectSource"
 
 
 @dataclass
@@ -106,6 +113,27 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
                 ),
             },
             description="Sets the volume percentage of a media player",
+            platforms={DOMAIN},
+            device_classes={MediaPlayerDeviceClass},
+        ),
+    )
+    intent.async_register(
+        hass,
+        intent.ServiceIntentHandler(
+            INTENT_SELECT_SOURCE,
+            DOMAIN,
+            SERVICE_SELECT_SOURCE,
+            required_domains={DOMAIN},
+            required_states={
+                MediaPlayerState.PLAYING,
+                MediaPlayerState.IDLE,
+                MediaPlayerState.STANDBY,
+                MediaPlayerState.PAUSED,
+                MediaPlayerState.ON,
+            },
+            required_features=MediaPlayerEntityFeature.SELECT_SOURCE,
+            required_slots={ATTR_INPUT_SOURCE: cv.string},
+            description="Selects the source of a media player",
             platforms={DOMAIN},
             device_classes={MediaPlayerDeviceClass},
         ),
